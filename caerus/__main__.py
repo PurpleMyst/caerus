@@ -1,12 +1,13 @@
 from __future__ import annotations
-import sqlite3
-import typing as t
+
 import json
 import os
-from contextlib import contextmanager
+import sqlite3
 import subprocess
-from pathlib import Path
+import typing as t
+from contextlib import contextmanager
 from itertools import repeat
+from pathlib import Path
 
 import click
 import cv2
