@@ -136,6 +136,7 @@ def rfind_frame(
         pos = cap.get(cv2.CAP_PROP_POS_FRAMES)
         pbar = tqdm(total=pos)
         while True:
+            assert pos >= 0
             pbar.update(1)
             frame: np.ndarray[t.Any, np.dtype[np.uint8]]
             ok, frame = cap.read()
@@ -146,30 +147,15 @@ def rfind_frame(
             cap.set(cv2.CAP_PROP_POS_FRAMES, pos)
 
 
-def first_succeeding_nonblack_frame(
-    path: PathArg,
-    *,
-    offset: float = 0,
-    threshold: int = 25,
-) -> t.Tuple[float, Frame]:
-    return find_frame(
-        path,
-        lambda frame: np.any(frame > threshold),  # type: ignore
-        offset=offset,
-    )
+def nonblack(
+    threshold: int = 32, percentage: float = 0.02
+) -> t.Callable[[Frame], bool]:
+    def predicate(frame: Frame) -> bool:
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        nonblacks = np.count_nonzero(frame > threshold) / frame.size
+        return nonblacks >= percentage
 
-
-def first_preceding_nonblack_frame(
-    path: PathArg,
-    *,
-    offset: float = 0,
-    threshold: int = 25,
-) -> t.Tuple[float, Frame]:
-    return rfind_frame(
-        path,
-        lambda frame: np.any(frame > threshold),  # type: ignore
-        offset=offset,
-    )
+    return predicate
 
 
 def cutout(
@@ -214,6 +200,8 @@ def cutout(
     subprocess.run(
         (
             "ffmpeg",
+            "-loglevel",
+            "warning",
             "-i",
             path,
             "-filter_complex",
@@ -241,6 +229,34 @@ def get_end(path: PathArg) -> float:
         )
 
 
+def matches_frame(
+    needle: Frame, *, percentage: float = 0.98, threshold: int = 32
+) -> t.Callable[[Frame], bool]:
+    """Return a predicate for find_frame that searches for matches to the given frame
+
+    Parameters
+    ----------
+    percentage : float
+        How much of the image should match?
+    threshold : int
+        The images are compared by being subtracted from one another and then converted
+        to luminance values. A pixel is considered as being the same if its "difference
+        luminance" is less than or equal to the threshold parameter.
+    """
+
+    is_nonblack = nonblack()
+
+    def predicate(frame: Frame) -> bool:
+        if not is_nonblack(frame):
+            return False
+        diff = cv2.absdiff(frame, needle)
+        diff = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
+        matching = np.count_nonzero(np.less(diff, threshold))
+        return matching / diff.size >= percentage  # type: ignore
+
+    return predicate
+
+
 @cli.command()
 @click.argument("path", type=click.Path())
 @click.option("-o", "--output", type=click.Path(), default="out.mp4")
@@ -260,22 +276,20 @@ def shave(ctx: click.Context, path: PathArg, output: PathArg) -> None:
     ).fetchall()
 
     cutouts = []
-    for segment_path, _, start_ts, end_ts in rows:
-        _, start_frame = first_succeeding_nonblack_frame(segment_path, offset=start_ts)
-
-        start_pos, _ = find_frame(
-            path, lambda frame: np.array_equal(frame, start_frame)
-        )
+    for segment_path, desc, start_ts, end_ts in rows:
+        tqdm.write(f"Looking for {desc!r}")
+        _, start_frame = find_frame(segment_path, nonblack(), offset=start_ts)
+        start_pos, noodle = find_frame(path, matches_frame(start_frame))
+        tqdm.write(f"Found {start_pos=}")
 
         if end_ts is None:
             end_pos = get_end(path)
         else:
-            _, end_frame = first_preceding_nonblack_frame(segment_path, offset=end_ts)
+            _, end_frame = rfind_frame(segment_path, nonblack(), offset=end_ts)
             end_pos, _ = rfind_frame(
-                path,
-                lambda frame: np.array_equal(frame, end_frame),
-                offset=start_pos + end_ts - start_ts,
+                path, matches_frame(end_frame), offset=start_pos + end_ts - start_ts
             )
+            tqdm.write(f"Found {end_pos=}")
 
         cutouts.append((start_pos, end_pos))
 

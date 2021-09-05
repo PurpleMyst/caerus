@@ -13,3 +13,9 @@ ffmpeg definitely uses floats internally though.
 The bottleneck is still processing
 The ffmpeg trim filter takes frame counts too though :eyes:
 https://ffmpeg.org/ffmpeg-filters.html#trim
+
+Detecting credits is difficult. The current method is not good, we may need some sort of
+image-hashing or something like that. 
+The problem is that credits are mostly black and there may be other mostly black frames
+in your media that aren't credits, but the difference between the two frames is small
+because 99% of the frames is black.
