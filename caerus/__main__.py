@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 from .utils import PathArg, insert_if_not_exists
 from .video_ops import (
-    cutout,
+    remove_segments,
     find_frame,
     matches_frame,
     nonblack,
@@ -132,7 +132,7 @@ def shave(ctx: click.Context, path: PathArg, output: PathArg) -> None:
 
         cutouts.append((start_pos, end_pos))
 
-    cutout(path, output, cutouts, preset=ctx.obj["preset"], crf=ctx.obj["crf"])
+    remove_segments(path, output, cutouts, preset=ctx.obj["preset"], crf=ctx.obj["crf"])
 
 
 if __name__ == "__main__":

@@ -105,7 +105,7 @@ def rfind_frame(
             cap.set(cv2.CAP_PROP_POS_FRAMES, pos)
 
 
-def cutout(
+def remove_segments(
     path: PathArg,
     output: PathArg,
     timestamps: t.List[t.Tuple[float, float]],
@@ -142,13 +142,12 @@ def cutout(
     concat.append(f"concat=n={len(to_keep)}:v=1:a=1[outv][outa]")
     filters.append("".join(concat))
 
-    # FIXME it looks like maybe the output video has the wrong length metadata but it
-    # plays correctly?
     subprocess.run(
         (
             "ffmpeg",
             "-loglevel",
             "warning",
+            "-stats",
             "-i",
             path,
             "-filter_complex",
@@ -159,6 +158,9 @@ def cutout(
             "[outa]",
             "-c:v",
             "libx264",
+            # Remove chapters as they may cause the output to have a wrong duration.
+            "-map-chapters",
+            "-1",
             "-preset",
             preset,
             "-crf",
