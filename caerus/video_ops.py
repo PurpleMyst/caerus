@@ -1,10 +1,11 @@
-import typing as t
-import cv2
 import subprocess
+import typing as t
+
+import cv2
 import numpy as np
 from tqdm import tqdm
 
-from .utils import PathArg, Frame, releasing
+from .utils import Frame, PathArg, releasing
 
 
 def video_length(path: PathArg) -> float:

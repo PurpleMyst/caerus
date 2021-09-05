@@ -1,8 +1,8 @@
-import typing as t
-import sqlite3
 import os
-from itertools import repeat
+import sqlite3
+import typing as t
 from contextlib import contextmanager
+from itertools import repeat
 
 import cv2
 import numpy as np

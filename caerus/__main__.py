@@ -7,17 +7,17 @@ import typing as t
 from pathlib import Path
 
 import click
-
 from tqdm import tqdm
+
+from .utils import PathArg, insert_if_not_exists
 from .video_ops import (
-    find_frame,
     cutout,
-    rfind_frame,
-    nonblack,
+    find_frame,
     matches_frame,
+    nonblack,
+    rfind_frame,
     video_length,
 )
-from .utils import insert_if_not_exists, PathArg
 
 
 @click.group()
