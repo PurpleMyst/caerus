@@ -6,3 +6,13 @@ https://video.stackexchange.com/q/23641
 
 Search through only keyframes as a "main" method and use all frames as a fallback
 https://video.stackexchange.com/q/32236
+
+When cutting up segments, remove any total-black ones
+
+Preserve subtitles
+
+Maybe use Decimal instead of floats for more accurate output?
+ffmpeg definitely uses floats internally though.
+The bottleneck is still processing
+The ffmpeg trim filter takes frame counts too though :eyes:
+https://ffmpeg.org/ffmpeg-filters.html#trim

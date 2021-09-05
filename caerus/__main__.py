@@ -3,7 +3,6 @@ import sqlite3
 import typing as t
 import json
 import os
-import tempfile
 from contextlib import contextmanager
 import subprocess
 from pathlib import Path
@@ -172,25 +171,6 @@ def first_preceding_nonblack_frame(
     )
 
 
-def cutout_single(
-    path: PathArg,
-    output: PathArg,
-    start: float,
-    end: t.Optional[float],
-    preset: str,
-    crf: int,
-) -> None:
-    args: t.List[PathArg] = ["ffmpeg", "-i", path, "-ss", str(start)]
-    if end is not None:
-        args.extend(("-to", str(end)))
-    args.extend(("-c:v", "libx264", "-preset", preset, "-crf", str(crf), output))
-
-    subprocess.run(
-        args,
-        check=True,
-    )
-
-
 def cutout(
     path: PathArg,
     output: PathArg,
@@ -216,35 +196,41 @@ def cutout(
     if prev_end != end:
         to_keep.append((prev_end, end))
 
-    with tempfile.TemporaryDirectory() as dir:
-        filelist = []
-        for i, (start, end) in enumerate(to_keep):
-            segment = Path(dir, f"segment{i}.mp4")
-            cutout_single(path, segment, start, end, preset, crf)
-            filelist.append(f"file '{segment}'")
+    filters = []
+    concat = []
 
-        filelist_file = Path(dir, "files.txt")
-        filelist_file.write_text("\n".join(filelist))
+    for i, (start, end) in enumerate(to_keep):
+        # XXX is format=yuv420p needed/useful?
+        filters.append(f"[0:v]trim=start={start}:end={end},setpts=PTS-STARTPTS[{i}v]")
+        filters.append(f"[0:a]atrim=start={start}:end={end},asetpts=PTS-STARTPTS[{i}a]")
+        concat.append(f"[{i}v][{i}a]")
 
-        subprocess.run(
-            (
-                "ffmpeg",
-                "-f",
-                "concat",
-                "-safe",
-                "0",
-                "-i",
-                filelist_file,
-                "-c:v",
-                "libx264",
-                "-preset",
-                preset,
-                "-crf",
-                str(crf),
-                output,
-            ),
-            check=True,
-        )
+    concat.append(f"concat=n={len(to_keep)}:v=1:a=1[outv][outa]")
+    filters.append("".join(concat))
+
+    # FIXME it looks like maybe the output video has the wrong length metadata but it
+    # plays correctly?
+    subprocess.run(
+        (
+            "ffmpeg",
+            "-i",
+            path,
+            "-filter_complex",
+            ";".join(filters),
+            "-map",
+            "[outv]",
+            "-map",
+            "[outa]",
+            "-c:v",
+            "libx264",
+            "-preset",
+            preset,
+            "-crf",
+            str(crf),
+            output,
+        ),
+        check=True,
+    )
 
 
 def get_end(path: PathArg) -> float:
