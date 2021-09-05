@@ -1,6 +1,3 @@
-Split & merge segments using ffmpeg
-https://superuser.com/q/681885
-
 Search through all frames using ffmpeg
 https://video.stackexchange.com/q/23641
 
