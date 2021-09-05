@@ -1,3 +1,6 @@
 .mypy_cache/
 .vscode/
 __pycache__/
+*.db
+*.mp4
+*.mkv

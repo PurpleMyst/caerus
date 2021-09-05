@@ -6,6 +6,8 @@ authors = ["PurpleMyst <PurpleMyst@users.noreply.github.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.9"
+opencv-python = "^4.5.3"
+tqdm = "^4.62.2"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
