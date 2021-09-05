@@ -99,7 +99,7 @@ def shave(ctx: click.Context, path: PathArg, output: PathArg) -> None:
     for segment_path, desc, start_ts, end_ts in rows:
         tqdm.write(f"Looking for {desc!r}")
         _, start_frame = find_frame(segment_path, nonblack(), offset=start_ts)
-        start_pos, noodle = find_frame(path, matches_frame(start_frame))
+        start_pos, _ = find_frame(path, matches_frame(start_frame))
         tqdm.write(f"Found {start_pos=}")
 
         if end_ts is None:
