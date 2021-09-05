@@ -59,11 +59,13 @@ def find_frame(
     predicate: t.Callable[[Frame], bool],
     *,
     offset: float = 0,
+    desc: t.Optional[str] = None,
 ) -> t.Tuple[float, Frame]:
     with releasing(cv2.VideoCapture(path)) as cap:
         cap.set(cv2.CAP_PROP_POS_MSEC, offset * 1000)
         pbar = tqdm(
-            total=cap.get(cv2.CAP_PROP_FRAME_COUNT) - cap.get(cv2.CAP_PROP_POS_FRAMES)
+            total=cap.get(cv2.CAP_PROP_FRAME_COUNT) - cap.get(cv2.CAP_PROP_POS_FRAMES),
+            desc=desc,
         )
         while True:
             pbar.update(1)
@@ -79,11 +81,18 @@ def rfind_frame(
     predicate: t.Callable[[Frame], bool],
     *,
     offset: float = 0,
+    desc: t.Optional[str] = None,
 ) -> t.Tuple[float, Frame]:
     with releasing(cv2.VideoCapture(path)) as cap:
-        cap.set(cv2.CAP_PROP_POS_MSEC, offset * 1000)
+        if offset < 0:
+            cap.set(cv2.CAP_PROP_POS_AVI_RATIO, 1)
+        else:
+            cap.set(cv2.CAP_PROP_POS_MSEC, offset * 1000)
+
         pos = cap.get(cv2.CAP_PROP_POS_FRAMES)
-        pbar = tqdm(total=pos)
+        if offset < 0:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, pos + offset)
+        pbar = tqdm(total=pos, desc=desc)
         while True:
             assert pos >= 0
             pbar.update(1)

@@ -98,16 +98,35 @@ def shave(ctx: click.Context, path: PathArg, output: PathArg) -> None:
     cutouts = []
     for segment_path, desc, start_ts, end_ts in rows:
         tqdm.write(f"Looking for {desc!r}")
-        _, start_frame = find_frame(segment_path, nonblack(), offset=start_ts)
-        start_pos, _ = find_frame(path, matches_frame(start_frame))
-        tqdm.write(f"Found {start_pos=}")
+        _, start_frame = find_frame(
+            segment_path,
+            nonblack(),
+            offset=start_ts,
+            desc="Searching first nonblack frame of segment",
+        )
 
         if end_ts is None:
+            start_pos, _ = rfind_frame(
+                path,
+                matches_frame(start_frame),
+                offset=-1,
+                desc="Searching backwards for start frame",
+            )
+            tqdm.write(f"Found {start_pos=}")
             end_pos = video_length(path)
         else:
+            start_pos, _ = find_frame(
+                path,
+                matches_frame(start_frame),
+                desc="Searching for start frame",
+            )
+            tqdm.write(f"Found {start_pos=}")
             _, end_frame = rfind_frame(segment_path, nonblack(), offset=end_ts)
             end_pos, _ = rfind_frame(
-                path, matches_frame(end_frame), offset=start_pos + end_ts - start_ts
+                path,
+                matches_frame(end_frame),
+                offset=start_pos + end_ts - start_ts,
+                desc="Searching for end frame",
             )
             tqdm.write(f"Found {end_pos=}")
 
