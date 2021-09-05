@@ -159,7 +159,7 @@ def remove_segments(
             "-c:v",
             "libx264",
             # Remove chapters as they may cause the output to have a wrong duration.
-            "-map-chapters",
+            "-map_chapters",
             "-1",
             "-preset",
             preset,
