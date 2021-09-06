@@ -1,10 +1,10 @@
 import json
 import sqlite3
+import subprocess
 import typing as t
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from itertools import repeat
-import subprocess
 
 import cv2
 import numpy as np

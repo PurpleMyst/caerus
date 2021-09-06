@@ -1,15 +1,15 @@
-from caerus.utils import FFMpeg
-from pathlib import Path
 import csv
 import subprocess
 import typing as t
-import joblib
+from pathlib import Path
 from time import perf_counter
 
+import joblib
 from pydantic import BaseModel, parse_file_as
 from youtube_dl import YoutubeDL
 
 from caerus.cli import CLI
+from caerus.utils import FFMpeg
 
 
 class Timestamp(BaseModel):

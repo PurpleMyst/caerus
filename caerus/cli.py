@@ -1,17 +1,18 @@
 import sqlite3
-from pathlib import Path
 import typing as t
+from pathlib import Path
+
+from tqdm import tqdm
 
 from .utils import FFMpeg, find_series, insert_if_not_exists
 from .video_ops import (
-    remove_segments,
     find_frame,
     matches_frame,
     nonblack,
+    remove_segments,
     rfind_frame,
     video_length,
 )
-from tqdm import tqdm
 
 
 class CLI:

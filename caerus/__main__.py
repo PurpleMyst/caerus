@@ -1,11 +1,11 @@
 from __future__ import annotations
-from .utils import FFMpeg
 
 import typing as t
 
 import click
 
 from .cli import CLI
+from .utils import FFMpeg
 
 
 @click.group()
