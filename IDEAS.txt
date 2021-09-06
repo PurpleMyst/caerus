@@ -9,6 +9,13 @@ Search through only keyframes as a "main" method and use all frames as a fallbac
     
     Is this worth it?
 
+Read xattr directly
+    https://github.com/filebot/plex-agents/blob/master/Scanners/Common/xattr.py
+
+Introduce a heuristic for search offset
+    We could search from the same offset as in the given segment file, maybe multiplied
+    by 0.95, and if it's not found there search from the start to the "heuristic offset".
+
 When removing segments, we could remove any leftover video that is just black.
 
 Preserve subtitles
