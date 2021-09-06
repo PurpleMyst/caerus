@@ -6,3 +6,4 @@ __pycache__/
 *.mkv
 benchmarks/videos/
 benchmarks/data.json
+data.csv
