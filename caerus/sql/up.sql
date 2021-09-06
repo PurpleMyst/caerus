@@ -11,9 +11,9 @@ CREATE TABLE IF NOT EXISTS SERIES(
 CREATE TABLE IF NOT EXISTS MARKINGS(
     id INTEGER PRIMARY KEY,
     video_id INTEGER NOT NULL,
-    description TEXT,
-    start_timestamp INTEGER NOT NULL,
+    description TEXT UNIQUE,
+    start_timestamp REAL NOT NULL,
     -- NULL represents "till the end of the video"
-    end_timestamp INTEGER,
+    end_timestamp REAL,
     FOREIGN KEY (video_id) REFERENCES videos(id) ON UPDATE CASCADE ON DELETE CASCADE
 );

@@ -38,11 +38,15 @@ class CLI:
                 {"path": path, "series_id": series_id},
             )
 
-            self.db.execute(
-                "INSERT INTO "
-                "markings(video_id, description, start_timestamp, end_timestamp) "
-                "VALUES (?, ?, ?, ?)",
-                (video_id, description, start, end),
+            insert_if_not_exists(
+                self.db,
+                "markings",
+                {
+                    "description": description,
+                    "video_id": video_id,
+                    "start_timestamp": start,
+                    "end_timestamp": end,
+                },
             )
 
     def shave(self, path: str, output: str) -> None:
