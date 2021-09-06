@@ -4,10 +4,10 @@ import cv2
 import numpy as np
 from tqdm import tqdm
 
-from .utils import FFMpeg, Frame, PathArg, releasing
+from .utils import FFMpeg, Frame, releasing
 
 
-def video_length(path: PathArg) -> float:
+def video_length(path: str) -> float:
     with releasing(cv2.VideoCapture(path)) as cap:
         return t.cast(
             float, cap.get(cv2.CAP_PROP_FRAME_COUNT) / cap.get(cv2.CAP_PROP_FPS)
@@ -54,7 +54,7 @@ def matches_frame(
 
 
 def find_frame(
-    path: PathArg,
+    path: str,
     predicate: t.Callable[[Frame], bool],
     *,
     offset: float = 0,
@@ -76,7 +76,7 @@ def find_frame(
 
 
 def rfind_frame(
-    path: PathArg,
+    path: str,
     predicate: t.Callable[[Frame], bool],
     *,
     offset: float = 0,
@@ -105,8 +105,8 @@ def rfind_frame(
 
 
 def remove_segments(
-    path: PathArg,
-    output: PathArg,
+    path: str,
+    output: str,
     timestamps: t.List[t.Tuple[float, float]],
     *,
     ffmpeg: FFMpeg = FFMpeg(),

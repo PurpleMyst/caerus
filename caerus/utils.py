@@ -11,7 +11,6 @@ import numpy as np
 import numpy.typing as npt
 
 Frame = npt.NDArray[np.uint8]
-PathArg = t.Union[str, bytes, os.PathLike[str], os.PathLike[bytes]]
 
 
 @contextmanager
@@ -58,7 +57,7 @@ class FFMpeg:
         return subprocess.run(argv, **kwargs)
 
 
-def find_series(path: PathArg) -> str:
+def find_series(path: str) -> str:
     info = json.loads(
         subprocess.run(
             ("filebot", "-mediainfo", "--format", "{json}", path),

@@ -2,7 +2,7 @@ import sqlite3
 from pathlib import Path
 import typing as t
 
-from .utils import FFMpeg, PathArg, find_series, insert_if_not_exists
+from .utils import FFMpeg, find_series, insert_if_not_exists
 from .video_ops import (
     remove_segments,
     find_frame,
@@ -24,7 +24,7 @@ class CLI:
 
     def mark(
         self,
-        path: PathArg,
+        path: str,
         description: str,
         start: float,
         end: t.Optional[float],
@@ -45,7 +45,7 @@ class CLI:
                 (video_id, description, start, end),
             )
 
-    def shave(self, path: PathArg, output: PathArg) -> None:
+    def shave(self, path: str, output: str) -> None:
         series = find_series(path)
 
         rows: t.Iterable[t.Tuple[str, str, float, t.Optional[float]]] = self.db.execute(
