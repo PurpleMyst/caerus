@@ -49,12 +49,15 @@ class FFMpeg:
     def __call__(
         self, *args: t.Any, **kwargs: t.Any
     ) -> subprocess.CompletedProcess[str]:
-        argv = ["ffmpeg"]
+        kwargs.setdefault("check", True)
+        cmd = ["ffmpeg"]
+        *head, tail = args
+        cmd.extend(map(str, head))
         for k, v in self.options.items():
-            argv.append("-" + k)
-            argv.append(str(v))
-        argv.extend(map(str, args))
-        return subprocess.run(argv, **kwargs)
+            cmd.append("-" + k)
+            cmd.append(str(v))
+        cmd.append(str(tail))
+        return subprocess.run(cmd, **kwargs)
 
 
 def find_series(path: str) -> str:
