@@ -4,3 +4,5 @@ __pycache__/
 *.db
 *.mp4
 *.mkv
+benchmarks/videos/
+benchmarks/data.json
