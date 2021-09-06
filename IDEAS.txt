@@ -1,5 +1,6 @@
 Search through all frames using ffmpeg
-https://video.stackexchange.com/q/23641
+    https://video.stackexchange.com/q/23641
+    ffmpeg.exe -i VIDEO -loop 1 -i IMAGE -filter_complex "blend=difference:shortest=1,blackframe" -f null - 2>&1
 
 Search through only keyframes as a "main" method and use all frames as a fallback
     https://video.stackexchange.com/q/32236

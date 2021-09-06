@@ -1,11 +1,10 @@
-import subprocess
 import typing as t
 
 import cv2
 import numpy as np
 from tqdm import tqdm
 
-from .utils import Frame, PathArg, releasing
+from .utils import FFMpeg, Frame, PathArg, releasing
 
 
 def video_length(path: PathArg) -> float:
@@ -110,8 +109,7 @@ def remove_segments(
     output: PathArg,
     timestamps: t.List[t.Tuple[float, float]],
     *,
-    preset: str,
-    crf: int,
+    ffmpeg: FFMpeg = FFMpeg(),
 ) -> None:
     timestamps.sort()
     it = iter(timestamps)
@@ -142,30 +140,22 @@ def remove_segments(
     concat.append(f"concat=n={len(to_keep)}:v=1:a=1[outv][outa]")
     filters.append("".join(concat))
 
-    subprocess.run(
-        (
-            "ffmpeg",
-            "-loglevel",
-            "warning",
-            "-stats",
-            "-i",
-            path,
-            "-filter_complex",
-            ";".join(filters),
-            "-map",
-            "[outv]",
-            "-map",
-            "[outa]",
-            "-c:v",
-            "libx264",
-            # Remove chapters as they may cause the output to have a wrong duration.
-            "-map_chapters",
-            "-1",
-            "-preset",
-            preset,
-            "-crf",
-            str(crf),
-            output,
-        ),
-        check=True,
+    ffmpeg(
+        "-loglevel",
+        "warning",
+        "-stats",
+        "-i",
+        path,
+        "-filter_complex",
+        ";".join(filters),
+        "-map",
+        "[outv]",
+        "-map",
+        "[outa]",
+        "-c:v",
+        "libx264",
+        # Remove chapters as they may cause the output to have a wrong duration.
+        "-map_chapters",
+        "-1",
+        output,
     )

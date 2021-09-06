@@ -1,8 +1,10 @@
 import os
+import json
 import sqlite3
 import typing as t
 from contextlib import contextmanager
 from itertools import repeat
+import subprocess
 
 import cv2
 import numpy as np
@@ -39,3 +41,30 @@ def insert_if_not_exists(
     else:
         [id] = result
     return id
+
+
+class FFMpeg:
+    def __init__(self, **options: t.Any) -> None:
+        self.options = options
+
+    def __call__(
+        self, *args: t.Any, **kwargs: t.Any
+    ) -> subprocess.CompletedProcess[str]:
+        argv = ["ffmpeg"]
+        for k, v in self.options.items():
+            argv.append("-" + k)
+            argv.append(str(v))
+        argv.extend(map(str, args))
+        return subprocess.run(argv, **kwargs)
+
+
+def find_series(path: PathArg) -> str:
+    info = json.loads(
+        subprocess.run(
+            ("filebot", "-mediainfo", "--format", "{json}", path),
+            check=True,
+            capture_output=True,
+        ).stdout.decode("ascii", "ignore")
+    )
+    series: str = info["seriesInfo"]["name"]
+    return series
