@@ -15,12 +15,12 @@ from tqdm import tqdm
 
 
 class CLI:
-    def __init__(self, database: str, ffmpeg_args: t.Dict[str, t.Any]) -> None:
+    def __init__(self, database: str, ffmpeg: FFMpeg) -> None:
         self.db = sqlite3.connect(database)
         self.db.executescript(
             Path(__file__).parent.joinpath("sql", "up.sql").read_text()
         )
-        self.ffmpeg = FFMpeg(**ffmpeg_args)
+        self.ffmpeg = ffmpeg
 
     def mark(
         self,
@@ -49,7 +49,7 @@ class CLI:
                 },
             )
 
-    def shave(self, path: str, output: str) -> None:
+    def find_segments(self, path: str) -> t.List[t.Tuple[float, float]]:
         series = find_series(path)
 
         rows: t.Iterable[t.Tuple[str, str, float, t.Optional[float]]] = self.db.execute(
@@ -64,29 +64,24 @@ class CLI:
         cutouts = []
         for segment_path, desc, start_ts, end_ts in rows:
             tqdm.write(f"Looking for {desc!r}")
-            _, start_frame = find_frame(
+            h_offset, start_frame = find_frame(
                 segment_path,
                 nonblack(),
                 offset=start_ts,
                 desc="Searching first nonblack frame of segment",
             )
 
+            start_pos, _ = find_frame(
+                path,
+                matches_frame(start_frame),
+                desc="Searching for start frame",
+                h_offset=h_offset,
+            )
+            tqdm.write(f"Found {start_pos=}")
+
             if end_ts is None:
-                start_pos, _ = rfind_frame(
-                    path,
-                    matches_frame(start_frame),
-                    offset=-1,
-                    desc="Searching backwards for start frame",
-                )
-                tqdm.write(f"Found {start_pos=}")
                 end_pos = video_length(path)
             else:
-                start_pos, _ = find_frame(
-                    path,
-                    matches_frame(start_frame),
-                    desc="Searching for start frame",
-                )
-                tqdm.write(f"Found {start_pos=}")
                 _, end_frame = rfind_frame(segment_path, nonblack(), offset=end_ts)
                 end_pos, _ = rfind_frame(
                     path,
@@ -97,5 +92,8 @@ class CLI:
                 tqdm.write(f"Found {end_pos=}")
 
             cutouts.append((start_pos, end_pos))
+        return cutouts
 
+    def shave(self, path: str, output: str) -> None:
+        cutouts = self.find_segments(path)
         remove_segments(path, output, cutouts, ffmpeg=self.ffmpeg)

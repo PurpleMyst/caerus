@@ -1,8 +1,8 @@
-import os
 import json
 import sqlite3
 import typing as t
 from contextlib import contextmanager
+from dataclasses import dataclass, field
 from itertools import repeat
 import subprocess
 
@@ -42,9 +42,9 @@ def insert_if_not_exists(
     return id
 
 
+@dataclass
 class FFMpeg:
-    def __init__(self, **options: t.Any) -> None:
-        self.options = options
+    options: t.Dict[str, t.Any] = field(default_factory=dict)
 
     def __call__(
         self, *args: t.Any, **kwargs: t.Any

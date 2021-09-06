@@ -1,4 +1,5 @@
 from __future__ import annotations
+from .utils import FFMpeg
 
 import typing as t
 
@@ -14,7 +15,7 @@ from .cli import CLI
 @click.pass_context
 def cli(ctx: click.Context, database: str, preset: str, crf: int) -> None:
     ctx.ensure_object(dict)
-    ctx.obj["cli"] = CLI(database, ffmpeg_args={"preset": preset, "crf": crf})
+    ctx.obj["cli"] = CLI(database, FFMpeg({"preset": preset, "crf": crf}))
 
 
 @cli.command()

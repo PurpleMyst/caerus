@@ -58,8 +58,34 @@ def find_frame(
     predicate: t.Callable[[Frame], bool],
     *,
     offset: float = 0,
+    h_offset: t.Optional[float] = None,
     desc: t.Optional[str] = None,
 ) -> t.Tuple[float, Frame]:
+    """Search for a frame satisfying PREDICATE in PATH.
+
+    Parameters
+    ----------
+    path : str
+        The path to the video in which to search
+    predicate: (Frame) => bool
+        The predicate that must be satisfied
+    offset : float
+        Where to seek the video to before searching
+    h_offset : float
+        An "heuristic" offset. This offset is where you guess the frame will be found.
+        The search will start from here and, shall the search from that offset fail,
+        it'll be retried starting from OFFSET.
+    desc : str
+        An optional description for the shown progress bar
+    """
+    if h_offset is not None:
+        try:
+            return find_frame(
+                path, predicate, offset=h_offset, desc=f"{desc} (heuristically)"
+            )
+        except LookupError:
+            pass
+
     with releasing(cv2.VideoCapture(path)) as cap:
         cap.set(cv2.CAP_PROP_POS_MSEC, offset * 1000)
         pbar = tqdm(
@@ -70,7 +96,8 @@ def find_frame(
             pbar.update(1)
             frame: np.ndarray[t.Any, np.dtype[np.uint8]]
             ok, frame = cap.read()
-            assert ok
+            if not ok:
+                raise LookupError("Ran out of frames while trying to search for frame.")
             if predicate(frame):
                 return (cap.get(cv2.CAP_PROP_POS_MSEC) / 1000, frame)
 

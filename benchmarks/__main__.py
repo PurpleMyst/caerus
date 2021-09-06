@@ -1,25 +1,24 @@
+from caerus.utils import FFMpeg
 from pathlib import Path
 import csv
 import subprocess
-import tempfile
 import typing as t
 import joblib
 from time import perf_counter
 
-import pydantic
+from pydantic import BaseModel, parse_file_as
 from youtube_dl import YoutubeDL
-from uuid import uuid1
 
 from caerus.cli import CLI
 
 
-class Timestamp(pydantic.BaseModel):
+class Timestamp(BaseModel):
     description: str
     start: float
     end: t.Optional[float]
 
 
-class Testcase(pydantic.BaseModel):
+class Testcase(BaseModel):
     url: str
     name: str
     timestamps: t.List[Timestamp]
@@ -61,12 +60,10 @@ def get_video(tc: Testcase) -> str:
 
 
 def main() -> None:
-    cli = CLI(":memory:", {})
-    cases = pydantic.parse_file_as(
-        t.List[Testcase], Path(__file__).parent.joinpath("data.json")
-    )
+    cli = CLI(":memory:", FFMpeg())
+    cases = parse_file_as(t.List[Testcase], Path(__file__).parent / "data.json")
 
-    with tempfile.TemporaryDirectory() as dir, open("data.csv", "w", newline="") as f:
+    with open("data.csv", "w", newline="") as f:
         w = csv.writer(f, dialect="excel")
 
         for case in cases:
@@ -80,9 +77,9 @@ def main() -> None:
                 w.writerow((video, "mark", ts.description, start, end, end - start))
 
             start = perf_counter()
-            cli.shave(video, str(Path(dir, f"{uuid1()}.mp4")))
+            cli.find_segments(video)
             end = perf_counter()
-            w.writerow((video, "shave", ts.description, start, end, end - start))
+            w.writerow((video, "find_segments", None, start, end, end - start))
 
 
 if __name__ == "__main__":
