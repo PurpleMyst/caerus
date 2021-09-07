@@ -37,6 +37,15 @@ def mark(
 
 @cli.command()
 @click.argument("path", type=click.Path())
+@click.pass_context
+def show_markings(ctx: click.Context, path: str) -> None:
+    """Remove found markings in a video file"""
+    cli: CLI = ctx.obj["cli"]
+    cli.show_markings(path)
+
+
+@cli.command()
+@click.argument("path", type=click.Path())
 @click.option("-o", "--output", type=click.Path(), default="out.mp4")
 @click.pass_context
 def shave(ctx: click.Context, path: str, output: str) -> None:

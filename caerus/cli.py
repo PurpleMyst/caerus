@@ -4,6 +4,7 @@ from pathlib import Path
 import logging
 from functools import partial
 
+import cv2
 import structlog
 import structlog.contextvars
 from tqdm import tqdm
@@ -109,6 +110,26 @@ class CLI:
             self.logger.debug("found end of segment", ts=segment_end.ts)
 
         return (segment_start, segment_end)
+
+    def show_markings(self, path: str) -> None:
+        series = find_series(path)
+        markings = self._query_markings(series)
+        for ref_path, desc, mark_start, mark_end in markings:
+            structlog.contextvars.bind_contextvars(desc=desc)
+
+            seg_start, seg_end = self._get_segment(ref_path, mark_start, mark_end)
+
+            cv2.imshow(
+                f"segment {desc!r} starting at {seg_start.ts:.3f} in {ref_path}",
+                seg_start.frame,
+            )
+            if seg_end is not None:
+                cv2.imshow(
+                    f"segment {desc!r} ending at {seg_end.ts:.3f} in {ref_path}",
+                    seg_end.frame,
+                )
+            cv2.waitKey()
+            cv2.destroyAllWindows()
 
     def find_segments(self, path: str) -> t.List[t.Tuple[float, float]]:
         series = find_series(path)
