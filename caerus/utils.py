@@ -21,11 +21,10 @@ def releasing(cap: cv2.VideoCapture) -> t.Iterator[cv2.VideoCapture]:
         cap.release()
 
 
-def insert_if_not_exists(
-    db: sqlite3.Connection,
-    table: str,
-    values: t.Dict[str, t.Any],
-) -> int:
+def insert_unique(db: sqlite3.Connection, table: str, **values: t.Any) -> int:
+    """Insert a row into a database table making sure it is unique, returning its id.
+
+    Uniqueness is determined by the first element of VALUES, in insertion order."""
     uniq_column, uniq_value = next(iter(values.items()))
     result = db.execute(
         f"SELECT id FROM {table} WHERE {uniq_column} = ?", (uniq_value,)

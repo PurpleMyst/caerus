@@ -8,7 +8,7 @@ import structlog
 import structlog.contextvars
 from tqdm import tqdm
 
-from .utils import FFMpeg, find_series, insert_if_not_exists
+from .utils import FFMpeg, find_series, insert_unique
 from .video_ops import (
     FoundFrame,
     find_frame,
@@ -64,22 +64,16 @@ class CLI:
     ) -> None:
         series = find_series(path)
         with self.db:
-            series_id = insert_if_not_exists(self.db, "series", {"title": series})
-            video_id = insert_if_not_exists(
-                self.db,
-                "videos",
-                {"path": path, "series_id": series_id},
-            )
+            series_id = insert_unique(self.db, "series", title=series)
+            video_id = insert_unique(self.db, "videos", path=path, series_id=series_id)
 
-            insert_if_not_exists(
+            insert_unique(
                 self.db,
                 "markings",
-                {
-                    "description": description,
-                    "video_id": video_id,
-                    "start_timestamp": start,
-                    "end_timestamp": end,
-                },
+                description=description,
+                video_id=video_id,
+                start_timestamp=start,
+                end_timestamp=end,
             )
 
     def _query_markings(
