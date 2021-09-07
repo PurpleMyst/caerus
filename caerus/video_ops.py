@@ -2,9 +2,19 @@ import typing as t
 
 import cv2
 import numpy as np
+import structlog
 from tqdm import tqdm
+from colorama import Fore
 
 from .utils import FFMpeg, Frame, releasing
+
+BAR_FORMAT = (
+    f"{Fore.MAGENTA}{{desc}}{Fore.RESET}: {Fore.GREEN}{{percentage:3.2f}}% "
+    f"{Fore.BLUE}{{bar}}"
+    f" {Fore.GREEN}{{n_fmt}}{Fore.RESET}/{{total:.0f}}"
+    f" [{Fore.GREEN}{{elapsed}} "
+    f"{Fore.RED}{{rate_fmt}}{Fore.RESET}{{postfix}}]"
+)
 
 
 def video_length(path: str) -> float:
@@ -14,43 +24,21 @@ def video_length(path: str) -> float:
         )
 
 
-def nonblack(
-    threshold: int = 32, percentage: float = 0.02
-) -> t.Callable[[Frame], bool]:
-    def predicate(frame: Frame) -> bool:
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        nonblacks = np.count_nonzero(frame > threshold) / frame.size
-        return nonblacks >= percentage
-
-    return predicate
+def nonblack(frame: Frame, *, threshold: int = 32, percentage: float = 0.02) -> bool:
+    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    nonblacks = np.count_nonzero(frame > threshold) / frame.size
+    return nonblacks >= percentage
 
 
 def matches_frame(
-    needle: Frame, *, percentage: float = 0.98, threshold: int = 32
-) -> t.Callable[[Frame], bool]:
-    """Return a predicate for find_frame that searches for matches to the given frame
-
-    Parameters
-    ----------
-    percentage : float
-        How much of the image should match?
-    threshold : int
-        The images are compared by being subtracted from one another and then converted
-        to luminance values. A pixel is considered as being the same if its "difference
-        luminance" is less than or equal to the threshold parameter.
-    """
-
-    is_nonblack = nonblack()
-
-    def predicate(frame: Frame) -> bool:
-        if not is_nonblack(frame):
-            return False
-        diff = cv2.absdiff(frame, needle)
-        diff = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
-        matching = np.count_nonzero(np.less(diff, threshold))
-        return matching / diff.size >= percentage  # type: ignore
-
-    return predicate
+    needle: Frame, candidate: Frame, *, percentage: float = 0.98, threshold: int = 32
+) -> bool:
+    if not nonblack(candidate):
+        return False
+    diff = cv2.absdiff(candidate, needle)
+    diff = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
+    matching = np.count_nonzero(np.less(diff, threshold))
+    return matching / diff.size >= percentage  # type: ignore
 
 
 def find_frame(
@@ -78,6 +66,9 @@ def find_frame(
     desc : str
         An optional description for the shown progress bar
     """
+    structlog.get_logger().debug(
+        "find_frame", path=path, offset=offset, h_offset=h_offset
+    )
     if h_offset is not None:
         try:
             return find_frame(
@@ -91,13 +82,14 @@ def find_frame(
         pbar = tqdm(
             total=cap.get(cv2.CAP_PROP_FRAME_COUNT) - cap.get(cv2.CAP_PROP_POS_FRAMES),
             desc=desc,
+            bar_format=BAR_FORMAT,
         )
         while True:
             pbar.update(1)
             frame: np.ndarray[t.Any, np.dtype[np.uint8]]
             ok, frame = cap.read()
             if not ok:
-                raise LookupError("Ran out of frames while trying to search for frame.")
+                raise LookupError
             if predicate(frame):
                 return (cap.get(cv2.CAP_PROP_POS_MSEC) / 1000, frame)
 
@@ -109,6 +101,7 @@ def rfind_frame(
     offset: float = 0,
     desc: t.Optional[str] = None,
 ) -> t.Tuple[float, Frame]:
+    structlog.get_logger().debug("rfind_frame", path=path, offset=offset)
     with releasing(cv2.VideoCapture(path)) as cap:
         if offset < 0:
             cap.set(cv2.CAP_PROP_POS_AVI_RATIO, 1)
@@ -118,13 +111,14 @@ def rfind_frame(
         pos = cap.get(cv2.CAP_PROP_POS_FRAMES)
         if offset < 0:
             cap.set(cv2.CAP_PROP_POS_FRAMES, pos + offset)
-        pbar = tqdm(total=pos, desc=desc)
+        pbar = tqdm(total=pos, desc=desc, bar_format=BAR_FORMAT)
         while True:
             assert pos >= 0
             pbar.update(1)
-            frame: np.ndarray[t.Any, np.dtype[np.uint8]]
+            frame: Frame
             ok, frame = cap.read()
-            assert ok
+            if not ok:
+                raise LookupError
             if predicate(frame):
                 return (cap.get(cv2.CAP_PROP_POS_MSEC) / 1000, frame)
             pos -= 1

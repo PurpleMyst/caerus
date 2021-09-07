@@ -67,7 +67,6 @@ def main() -> None:
         w = csv.writer(f, dialect="excel")
 
         for case in cases:
-            print(case)
             video = get_video(case)
 
             for ts in case.timestamps:
