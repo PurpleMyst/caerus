@@ -10,6 +10,7 @@ from tqdm import tqdm
 
 from .utils import FFMpeg, find_series, insert_if_not_exists
 from .video_ops import (
+    FoundFrame,
     find_frame,
     matches_frame,
     nonblack,
@@ -81,10 +82,10 @@ class CLI:
                 },
             )
 
-    def find_segments(self, path: str) -> t.List[t.Tuple[float, float]]:
-        series = find_series(path)
-
-        rows: t.Iterable[t.Tuple[str, str, float, t.Optional[float]]] = self.db.execute(
+    def _query_markings(
+        self, series: str
+    ) -> t.List[t.Tuple[str, str, float, t.Optional[float]]]:
+        return self.db.execute(
             """
             SELECT path, description, start_timestamp, end_timestamp
             FROM markings
@@ -93,44 +94,57 @@ class CLI:
             (series,),
         ).fetchall()
 
+    def _get_segment(
+        self, path: str, start: float, end: t.Optional[float]
+    ) -> t.Tuple[FoundFrame, t.Optional[FoundFrame]]:
+        self.logger.info("looking for segment")
+
+        segment_start = find_frame(
+            path,
+            nonblack,
+            offset=start,
+            desc="Searching first nonblack frame of segment",
+        )
+        self.logger.debug("found start of segment", ts=segment_start.ts)
+
+        if end is None:
+            segment_end = None
+            self.logger.debug("found end of segment", ts=None)
+        else:
+            segment_end = rfind_frame(path, nonblack, offset=end)
+            self.logger.debug("found end of segment", ts=segment_end.ts)
+
+        return (segment_start, segment_end)
+
+    def find_segments(self, path: str) -> t.List[t.Tuple[float, float]]:
+        series = find_series(path)
+        markings = self._query_markings(series)
         cutouts = []
-        for segment_path, desc, mark_start_ts, mark_end_ts in rows:
+        for ref_path, desc, mark_start, mark_end in markings:
             structlog.contextvars.bind_contextvars(desc=desc)
-            self.logger.info("looking for segment")
 
-            segment_start_ts, segment_start = find_frame(
-                segment_path,
-                nonblack,
-                offset=mark_start_ts,
-                desc="Searching first nonblack frame of segment",
-            )
-            self.logger.debug("found start of segment", ts=segment_start_ts)
+            seg_start, seg_end = self._get_segment(ref_path, mark_start, mark_end)
 
-            start_pos, _ = find_frame(
+            start, _ = find_frame(
                 path,
-                partial(matches_frame, segment_start),
+                partial(matches_frame, seg_start.frame),
                 desc="Searching for start frame",
-                h_offset=0.95 * segment_start_ts,
+                h_offset=0.95 * seg_start.ts,
             )
-            self.logger.info("found start in target", start_pos=start_pos)
+            self.logger.info("found start in target", pos=start)
 
-            if mark_end_ts is None:
-                end_pos = video_length(path)
+            if seg_end is None:
+                end = video_length(path)
             else:
-                segment_end_ts, segment_end = rfind_frame(
-                    segment_path, nonblack, offset=mark_end_ts
-                )
-
-                self.logger.debug("found end of segment", ts=segment_end_ts)
-                end_pos, _ = rfind_frame(
+                end, _ = rfind_frame(
                     path,
-                    partial(matches_frame, segment_end),
-                    offset=start_pos + (segment_end_ts - segment_start_ts),
+                    partial(matches_frame, seg_end.frame),
+                    offset=start + (seg_end.ts - seg_start.ts),
                     desc="Searching for end frame",
                 )
-            self.logger.info("found end in target", end_pos=end_pos)
+            self.logger.info("found end in target", pos=end)
 
-            cutouts.append((start_pos, end_pos))
+            cutouts.append((start, end))
         return cutouts
 
     def shave(self, path: str, output: str) -> None:

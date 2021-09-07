@@ -17,6 +17,11 @@ BAR_FORMAT = (
 )
 
 
+class FoundFrame(t.NamedTuple):
+    ts: float
+    frame: Frame
+
+
 def video_length(path: str) -> float:
     with releasing(cv2.VideoCapture(path)) as cap:
         return t.cast(
@@ -48,7 +53,7 @@ def find_frame(
     offset: float = 0,
     h_offset: t.Optional[float] = None,
     desc: t.Optional[str] = None,
-) -> t.Tuple[float, Frame]:
+) -> FoundFrame:
     """Search for a frame satisfying PREDICATE in PATH.
 
     Parameters
@@ -91,7 +96,7 @@ def find_frame(
             if not ok:
                 raise LookupError
             if predicate(frame):
-                return (cap.get(cv2.CAP_PROP_POS_MSEC) / 1000, frame)
+                return FoundFrame(cap.get(cv2.CAP_PROP_POS_MSEC) / 1000, frame)
 
 
 def rfind_frame(
@@ -100,7 +105,7 @@ def rfind_frame(
     *,
     offset: float = 0,
     desc: t.Optional[str] = None,
-) -> t.Tuple[float, Frame]:
+) -> FoundFrame:
     structlog.get_logger().debug("rfind_frame", path=path, offset=offset)
     with releasing(cv2.VideoCapture(path)) as cap:
         if offset < 0:
@@ -120,7 +125,7 @@ def rfind_frame(
             if not ok:
                 raise LookupError
             if predicate(frame):
-                return (cap.get(cv2.CAP_PROP_POS_MSEC) / 1000, frame)
+                return FoundFrame(cap.get(cv2.CAP_PROP_POS_MSEC) / 1000, frame)
             pos -= 1
             cap.set(cv2.CAP_PROP_POS_FRAMES, pos)
 
