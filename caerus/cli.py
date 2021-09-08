@@ -90,6 +90,14 @@ class CLI:
                 video_id=video_id,
                 start=start,
                 end=end,
+
+    def remove_reference(
+        self,
+        description: str,
+    ) -> None:
+        with self.db:
+            self.db.execute(
+                "DELETE FROM segment_references WHERE description=?", (description,)
             )
 
     def _query_segment_references_for_series(

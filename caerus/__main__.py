@@ -41,6 +41,18 @@ def add(
 
 
 @references.command()
+@click.argument("description", type=str)
+@click.pass_context
+def remove(
+    ctx: click.Context,
+    description: str,
+) -> None:
+    """Remove a segment reference with the given DESCRIPTION."""
+    cli: CLI = ctx.obj["cli"]
+    cli.remove_reference(description)
+
+
+@references.command()
 @click.argument("path", type=click.Path())
 @click.option(
     "--all-in-series/--file-only",
