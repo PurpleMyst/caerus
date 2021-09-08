@@ -69,7 +69,7 @@ class CLI:
             ),
             cache_logger_on_first_use=True,
         )
-        self.logger = structlog.get_logger().bind()
+        self.logger: structlog.BoundLogger = structlog.get_logger().bind()
 
     def add_reference(
         self,
@@ -189,6 +189,7 @@ class CLI:
             series_id = insert_unique(self.db, "series", title=find_series(path))
             video_id = insert_unique(self.db, "videos", path=path, series_id=series_id)
         references = self._query_unfound_segment_references(video_id, series_id)
+
         self.logger.debug("unfound_references", references=references)
         segments = []
         for reference_id, ref_path, desc, ref_start, ref_end in references:
@@ -196,26 +197,31 @@ class CLI:
 
             seg_start, seg_end = self._get_segment_ref(ref_path, ref_start, ref_end)
 
-            start, _ = find_frame(
-                path,
-                partial(matches_frame, seg_start.frame),
-                desc="Searching for start frame",
-                h_offset=0.95 * seg_start.ts,
-            )
-            self.logger.info("found start in target", pos=start)
-
-            if seg_end is None:
-                end = video_length(path)
-            else:
-                end, _ = rfind_frame(
+            try:
+                start, _ = find_frame(
                     path,
-                    partial(matches_frame, seg_end.frame),
-                    offset=start + (seg_end.ts - seg_start.ts),
-                    desc="Searching for end frame",
+                    partial(matches_frame, seg_start.frame),
+                    desc="Searching for start frame",
+                    h_offset=0.95 * seg_start.ts,
                 )
-            self.logger.info("found end in target", pos=end)
+                self.logger.info("found start in target", pos=start)
+
+                if seg_end is None:
+                    end = video_length(path)
+                else:
+                    end, _ = rfind_frame(
+                        path,
+                        partial(matches_frame, seg_end.frame),
+                        offset=start + (seg_end.ts - seg_start.ts),
+                        desc="Searching for end frame",
+                    )
+                self.logger.info("found end in target", pos=end)
+            except LookupError as e:
+                self.logger.warn("segment not found", error=e)
+                continue
 
             segments.append((reference_id, start, end))
+        structlog.contextvars.unbind_contextvars("desc")
 
         with self.db:
             for reference_id, start, end in segments:
