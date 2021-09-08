@@ -104,11 +104,10 @@ class CLI:
         self, series: str
     ) -> t.List[t.Tuple[str, str, float, t.Optional[float]]]:
         return self.db.execute(
-            """
-            SELECT path, description, start, end
-            FROM segment_references
-            JOIN videos ON videos.id = video_id
-            JOIN series ON series.title = ?""",
+            "SELECT path, description, start, end"
+            "FROM segment_references"
+            "JOIN videos ON videos.id = video_id"
+            "JOIN series ON series.title = ?",
             (series,),
         ).fetchall()
 
@@ -116,11 +115,9 @@ class CLI:
         self, path: str
     ) -> t.List[t.Tuple[str, str, float, t.Optional[float]]]:
         return self.db.execute(
-            """
-            SELECT description, start, end
-            FROM segment_references
-            JOIN videos ON videos.path = path
-            """,
+            "SELECT description, start, end"
+            "FROM segment_references"
+            "JOIN videos ON videos.path = ?",
             (path,),
         ).fetchall()
 

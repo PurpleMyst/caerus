@@ -63,7 +63,7 @@ def remove(
 )
 @click.pass_context
 def show(ctx: click.Context, path: str, all_in_series: bool) -> None:
-    """Show segment references defined on a file, potentially on all of its series"""
+    """Show segment references defined in PATH, potentially on all of its series"""
     cli: CLI = ctx.obj["cli"]
     cli.show_references(path, all_in_series)
 
