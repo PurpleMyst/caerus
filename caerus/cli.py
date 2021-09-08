@@ -1,12 +1,15 @@
 import sqlite3
+import sys
 import typing as t
 from pathlib import Path
 import logging
 from functools import partial
 
 import cv2
+import orjson
 import structlog
 import structlog.contextvars
+import structlog_overtime
 from tqdm import tqdm
 
 from .utils import FFMpeg, find_series, insert_unique
@@ -22,8 +25,11 @@ from .video_ops import (
 
 
 class TqdmWriteLogger:
+    def __init__(self, *_: t.Any) -> None:
+        self._write = partial(tqdm.write, file=sys.stderr)
+
     def msg(self, message: str) -> None:
-        tqdm.write(message)
+        self._write(message)
 
     log = debug = info = warn = warning = msg
     fatal = failure = err = error = critical = exception = msg
@@ -42,13 +48,25 @@ class CLI:
                 structlog.dev.set_exc_info,
                 structlog.processors.format_exc_info,
                 structlog.processors.TimeStamper(fmt="ISO"),
-                structlog.dev.ConsoleRenderer(),
             ],
             wrapper_class=structlog.make_filtering_bound_logger(
                 logging.DEBUG if __debug__ else logging.INFO
             ),
             context_class=dict,
-            logger_factory=lambda *_: TqdmWriteLogger(),
+            logger_factory=structlog_overtime.TeeLoggerFactory(
+                structlog_overtime.TeeOutput(
+                    processors=[structlog.dev.ConsoleRenderer()],
+                    logger_factory=TqdmWriteLogger,
+                ),
+                structlog_overtime.TeeOutput(
+                    processors=[
+                        structlog.processors.JSONRenderer(serializer=orjson.dumps)
+                    ],
+                    logger_factory=structlog.BytesLoggerFactory(
+                        open("logs.jsonl", "ab")
+                    ),
+                ),
+            ),
             cache_logger_on_first_use=True,
         )
         self.logger = structlog.get_logger().bind()

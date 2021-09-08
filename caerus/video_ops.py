@@ -4,16 +4,16 @@ import cv2
 import numpy as np
 import structlog
 from tqdm import tqdm
-from colorama import Fore
+from colorama import Fore, Style
 
 from .utils import FFMpeg, Frame, releasing
 
 BAR_FORMAT = (
-    f"{Fore.MAGENTA}{{desc}}{Fore.RESET}: {Fore.GREEN}{{percentage:3.2f}}% "
+    f"{Style.BRIGHT}{{desc}}{Style.RESET_ALL}: {Fore.GREEN}{{percentage:3.2f}}% "
     f"{Fore.BLUE}{{bar}}"
-    f" {Fore.GREEN}{{n_fmt}}{Fore.RESET}/{{total:.0f}}"
+    f" {Fore.GREEN}{{n_fmt}}{Style.RESET_ALL}/{{total:.0f}}"
     f" [{Fore.GREEN}{{elapsed}} "
-    f"{Fore.RED}{{rate_fmt}}{Fore.RESET}{{postfix}}]"
+    f"{Style.BRIGHT}{Fore.RED}{{rate_fmt}}{Style.RESET_ALL}{{postfix}}]"
 )
 
 

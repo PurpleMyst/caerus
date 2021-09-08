@@ -7,3 +7,4 @@ __pycache__/
 benchmarks/videos/
 benchmarks/data.json
 data.csv
+logs.jsonl
