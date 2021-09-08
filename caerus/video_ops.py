@@ -3,8 +3,8 @@ import typing as t
 import cv2
 import numpy as np
 import structlog
-from tqdm import tqdm
 from colorama import Fore, Style
+from tqdm import tqdm
 
 from .utils import FFMpeg, Frame, releasing
 

@@ -1,9 +1,9 @@
+import logging
 import sqlite3
 import sys
 import typing as t
-from pathlib import Path
-import logging
 from functools import partial
+from pathlib import Path
 
 import cv2
 import orjson
