@@ -51,7 +51,7 @@ class CLI:
             logger_factory=lambda *_: TqdmWriteLogger(),
             cache_logger_on_first_use=False,
         )
-        self.logger = structlog.get_logger()
+        self.logger = structlog.get_logger().bind()
 
     def add_reference(
         self,
