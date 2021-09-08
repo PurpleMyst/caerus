@@ -11,7 +11,7 @@ from .utils import FFMpeg
 @click.group()
 @click.option("-d", "--database", type=click.Path(), default="database.db")
 @click.pass_context
-def cli(ctx: click.Context, database: str, preset: str, crf: int) -> None:
+def cli(ctx: click.Context, database: str) -> None:
     ctx.ensure_object(dict)
     ctx.obj["cli"] = CLI(database)
 
