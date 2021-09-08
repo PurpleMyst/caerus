@@ -134,7 +134,6 @@ def remove_segments(
     path: str,
     output: str,
     timestamps: t.List[t.Tuple[float, float]],
-    *,
     ffmpeg: FFMpeg = FFMpeg(),
 ) -> None:
     timestamps.sort()

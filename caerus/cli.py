@@ -30,12 +30,9 @@ class TqdmWriteLogger:
 
 
 class CLI:
-    def __init__(self, database: str, ffmpeg: FFMpeg) -> None:
+    def __init__(self, database: str) -> None:
         self.db = sqlite3.connect(database)
-        self.db.executescript(
-            Path(__file__).parent.joinpath("sql", "up.sql").read_text()
-        )
-        self.ffmpeg = ffmpeg
+        self.db.executescript((Path(__file__).parent / "sql" / "up.sql").read_text())
 
         structlog.configure(
             processors=[
@@ -177,6 +174,6 @@ class CLI:
             cutouts.append((start, end))
         return cutouts
 
-    def shave(self, path: str, output: str) -> None:
+    def shave(self, path: str, output: str, ffmpeg: FFMpeg) -> None:
         cutouts = self.find_segments(path)
-        remove_segments(path, output, cutouts, ffmpeg=self.ffmpeg)
+        remove_segments(path, output, cutouts, ffmpeg)

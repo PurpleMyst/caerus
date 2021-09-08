@@ -10,12 +10,10 @@ from .utils import FFMpeg
 
 @click.group()
 @click.option("-d", "--database", type=click.Path(), default="database.db")
-@click.option("--preset", type=str, default="medium")
-@click.option("--crf", type=int, default="23")
 @click.pass_context
 def cli(ctx: click.Context, database: str, preset: str, crf: int) -> None:
     ctx.ensure_object(dict)
-    ctx.obj["cli"] = CLI(database, FFMpeg({"preset": preset, "crf": crf}))
+    ctx.obj["cli"] = CLI(database)
 
 
 @cli.group()
@@ -61,13 +59,16 @@ def show(ctx: click.Context, path: str, all_in_series: bool) -> None:
 @cli.command()
 @click.argument("path", type=click.Path())
 @click.option("-o", "--output", type=click.Path(), default="out.mp4")
+@click.option("-f", "--ffmpeg-arg", type=str, nargs=2, multiple=True)
 @click.pass_context
-def shave(ctx: click.Context, path: str, output: str) -> None:
+def shave(
+    ctx: click.Context, path: str, output: str, ffmpeg_arg: t.List[t.Tuple[str, str]]
+) -> None:
     """Remove segments found in the given video file, saving the shaved version to OUTPUT.
 
     This is done by searching for known segments inside PATH"""
     cli: CLI = ctx.obj["cli"]
-    cli.shave(path, output)
+    cli.shave(path, output, FFMpeg(dict(ffmpeg_arg)))
 
 
 if __name__ == "__main__":
