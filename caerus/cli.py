@@ -69,7 +69,7 @@ class CLI:
             ),
             cache_logger_on_first_use=True,
         )
-        self.logger: structlog.BoundLogger = structlog.get_logger().bind()
+        self.logger = structlog.get_logger().bind()
 
     def add_reference(
         self,
