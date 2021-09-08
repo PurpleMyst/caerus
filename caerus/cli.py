@@ -100,29 +100,46 @@ class CLI:
 
     def _query_segment_references_for_series(
         self, series: str
-    ) -> t.List[t.Tuple[str, str, float, t.Optional[float]]]:
+    ) -> t.List[t.Tuple[int, str, str, float, t.Optional[float]]]:
         return self.db.execute(
-            "SELECT path, description, start, end"
-            "FROM segment_references"
-            "JOIN videos ON videos.id = video_id"
-            "JOIN series ON series.title = ?",
+            "SELECT segment_references.id, path, description, start, end"
+            " FROM segment_references"
+            " JOIN videos ON videos.id = video_id"
+            " JOIN series ON series.title = ?",
             (series,),
+        ).fetchall()
+
+    def _query_unfound_segment_references(
+        self, video_id: int, series_id: int
+    ) -> t.List[t.Tuple[int, str, str, float, t.Optional[float]]]:
+        return self.db.execute(
+            "SELECT segment_references.id, path, description, start, end"
+            " FROM segment_references"
+            " JOIN videos ON videos.id = video_id"
+            " JOIN series ON series.id = ?"
+            " WHERE segment_references.id NOT IN ("
+            "  SELECT reference_id"
+            "  FROM segments"
+            "  WHERE video_id = ?"
+            ")",
+            (series_id, video_id),
         ).fetchall()
 
     def _query_segment_references_for_path(
         self, path: str
-    ) -> t.List[t.Tuple[str, str, float, t.Optional[float]]]:
+    ) -> t.List[t.Tuple[int, str, str, float, t.Optional[float]]]:
         return self.db.execute(
-            "SELECT description, start, end"
-            "FROM segment_references"
-            "JOIN videos ON videos.path = ?",
+            "SELECT segment_references.id, description, start, end"
+            " FROM segment_references"
+            " JOIN videos ON videos.path = ?",
             (path,),
         ).fetchall()
 
     def _get_segment_ref(
         self, path: str, start: float, end: t.Optional[float]
     ) -> t.Tuple[FoundFrame, t.Optional[FoundFrame]]:
-        self.logger.info("looking for segment reference")
+        logger = self.logger.bind(path=path)
+        logger.debug("_get_segment_ref", start=start, end=end)
 
         segment_start = find_frame(
             path,
@@ -130,14 +147,14 @@ class CLI:
             offset=start,
             desc="Searching for the first nonblack frame",
         )
-        self.logger.debug("found start of segment reference", ts=segment_start.ts)
+        logger.debug("found start of segment reference", ts=segment_start.ts)
 
         if end is None:
             segment_end = None
-            self.logger.debug("found end of segment reference", ts=None)
+            logger.debug("found end of segment reference", ts=None)
         else:
             segment_end = rfind_frame(path, nonblack, offset=end)
-            self.logger.debug("found end of segment reference", ts=segment_end.ts)
+            logger.debug("found end of segment reference", ts=segment_end.ts)
 
         return (segment_start, segment_end)
 
@@ -147,28 +164,34 @@ class CLI:
             references = self._query_segment_references_for_series(series)
         else:
             references = self._query_segment_references_for_path(path)
-        for path, desc, start, end in references:
+        for id_, path, desc, start, end in references:
             structlog.contextvars.bind_contextvars(desc=desc)
 
             seg_start, seg_end = self._get_segment_ref(path, start, end)
 
             cv2.imshow(
-                f"segment reference {desc!r} starting at {seg_start.ts:.3f} in {path}",
+                f"segment reference {id_} {desc!r} "
+                f"starting at {seg_start.ts:.3f} in {path}",
                 seg_start.frame,
             )
             if seg_end is not None:
                 cv2.imshow(
-                    f"segment reference {desc!r} ending at {seg_end.ts:.3f} in {path}",
+                    f"segment reference {id_} {desc!r} "
+                    f"ending at {seg_end.ts:.3f} in {path}",
                     seg_end.frame,
                 )
             cv2.waitKey()
             cv2.destroyAllWindows()
 
-    def find_segments(self, path: str) -> t.List[t.Tuple[float, float]]:
-        series = find_series(path)
-        references = self._query_segment_references_for_series(series)
-        cutouts = []
-        for ref_path, desc, ref_start, ref_end in references:
+    def find_segments(self, path: str) -> None:
+        structlog.contextvars.bind_contextvars(target=path)
+        with self.db:
+            series_id = insert_unique(self.db, "series", title=find_series(path))
+            video_id = insert_unique(self.db, "videos", path=path, series_id=series_id)
+        references = self._query_unfound_segment_references(video_id, series_id)
+        self.logger.debug("unfound_references", references=references)
+        segments = []
+        for reference_id, ref_path, desc, ref_start, ref_end in references:
             structlog.contextvars.bind_contextvars(desc=desc)
 
             seg_start, seg_end = self._get_segment_ref(ref_path, ref_start, ref_end)
@@ -192,9 +215,24 @@ class CLI:
                 )
             self.logger.info("found end in target", pos=end)
 
-            cutouts.append((start, end))
-        return cutouts
+            segments.append((reference_id, start, end))
+
+        with self.db:
+            for reference_id, start, end in segments:
+                self.db.execute(
+                    "INSERT INTO segments(video_id, reference_id, start, end)"
+                    "VALUES (?, ?, ?, ?)",
+                    (video_id, reference_id, start, end),
+                )
+
+    def found_segments(self, path: str) -> t.List[t.Tuple[float, float]]:
+        return self.db.execute(
+            "SELECT start, end"
+            " FROM segments"
+            " JOIN videos ON video_id = segments.id AND path = ?",
+            (path,),
+        ).fetchall()
 
     def shave(self, path: str, output: str, ffmpeg: FFMpeg) -> None:
-        cutouts = self.find_segments(path)
-        remove_segments(path, output, cutouts, ffmpeg)
+        self.find_segments(path)
+        remove_segments(path, output, self.found_segments(path), ffmpeg)

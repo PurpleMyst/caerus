@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import typing as t
+import json
 
 import click
 
@@ -68,7 +69,31 @@ def show(ctx: click.Context, path: str, all_in_series: bool) -> None:
     cli.show_references(path, all_in_series)
 
 
-@cli.command()
+@cli.group()
+def segments() -> None:
+    """Search for and manipulate segments in specific files"""
+    pass
+
+
+@segments.command()
+@click.argument("path", type=click.Path())
+@click.pass_context
+def search(ctx: click.Context, path: str) -> None:
+    """Search for segments in PATH and save them to the database."""
+    cli: CLI = ctx.obj["cli"]
+    cli.find_segments(path)
+
+
+@segments.command()
+@click.argument("path", type=click.Path())
+@click.pass_context
+def query(ctx: click.Context, path: str) -> None:
+    """Print segments found by `segments search` in PATH as a JSON payload."""
+    cli: CLI = ctx.obj["cli"]
+    print(json.dumps(cli.found_segments(path)))
+
+
+@segments.command()
 @click.argument("path", type=click.Path())
 @click.option("-o", "--output", type=click.Path(), default="out.mp4")
 @click.option("-f", "--ffmpeg-arg", type=str, nargs=2, multiple=True)
@@ -76,9 +101,9 @@ def show(ctx: click.Context, path: str, all_in_series: bool) -> None:
 def shave(
     ctx: click.Context, path: str, output: str, ffmpeg_arg: t.List[t.Tuple[str, str]]
 ) -> None:
-    """Remove segments found in the given video file, saving the shaved version to OUTPUT.
+    """Remove segments found in PATH, saving the "shaved" version to OUTPUT.
 
-    This is done by searching for known segments inside PATH"""
+    Running this automatically runs `caerus segments search PATH` beforehand."""
     cli: CLI = ctx.obj["cli"]
     cli.shave(path, output, FFMpeg(dict(ffmpeg_arg)))
 
