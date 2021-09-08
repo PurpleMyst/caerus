@@ -38,10 +38,10 @@ def mark(
 @cli.command()
 @click.argument("path", type=click.Path())
 @click.pass_context
-def show_markings(ctx: click.Context, path: str) -> None:
-    """Remove found markings in a video file"""
+def show_references(ctx: click.Context, path: str) -> None:
+    """Remove found references in a video file"""
     cli: CLI = ctx.obj["cli"]
-    cli.show_markings(path)
+    cli.show_references(path)
 
 
 @cli.command()

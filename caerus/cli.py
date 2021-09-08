@@ -70,62 +70,62 @@ class CLI:
 
             insert_unique(
                 self.db,
-                "markings",
+                "segment_references",
                 description=description,
                 video_id=video_id,
-                start_timestamp=start,
-                end_timestamp=end,
+                start=start,
+                end=end,
             )
 
-    def _query_markings(
+    def _query_segment_references(
         self, series: str
     ) -> t.List[t.Tuple[str, str, float, t.Optional[float]]]:
         return self.db.execute(
             """
-            SELECT path, description, start_timestamp, end_timestamp
-            FROM markings
+            SELECT path, description, start, end
+            FROM segment_references
             JOIN videos ON videos.id = video_id
             JOIN series ON series.title = ?""",
             (series,),
         ).fetchall()
 
-    def _get_segment(
+    def _get_segment_ref(
         self, path: str, start: float, end: t.Optional[float]
     ) -> t.Tuple[FoundFrame, t.Optional[FoundFrame]]:
-        self.logger.info("looking for segment")
+        self.logger.info("looking for segment reference")
 
         segment_start = find_frame(
             path,
             nonblack,
             offset=start,
-            desc="Searching first nonblack frame of segment",
+            desc="Searching for the first nonblack frame",
         )
-        self.logger.debug("found start of segment", ts=segment_start.ts)
+        self.logger.debug("found start of segment reference", ts=segment_start.ts)
 
         if end is None:
             segment_end = None
-            self.logger.debug("found end of segment", ts=None)
+            self.logger.debug("found end of segment reference", ts=None)
         else:
             segment_end = rfind_frame(path, nonblack, offset=end)
-            self.logger.debug("found end of segment", ts=segment_end.ts)
+            self.logger.debug("found end of segment reference", ts=segment_end.ts)
 
         return (segment_start, segment_end)
 
-    def show_markings(self, path: str) -> None:
+    def show_references(self, path: str) -> None:
         series = find_series(path)
-        markings = self._query_markings(series)
-        for ref_path, desc, mark_start, mark_end in markings:
+        references = self._query_segment_references(series)
+        for path, desc, start, end in references:
             structlog.contextvars.bind_contextvars(desc=desc)
 
-            seg_start, seg_end = self._get_segment(ref_path, mark_start, mark_end)
+            seg_start, seg_end = self._get_segment_ref(path, start, end)
 
             cv2.imshow(
-                f"segment {desc!r} starting at {seg_start.ts:.3f} in {ref_path}",
+                f"segment reference {desc!r} starting at {seg_start.ts:.3f} in {path}",
                 seg_start.frame,
             )
             if seg_end is not None:
                 cv2.imshow(
-                    f"segment {desc!r} ending at {seg_end.ts:.3f} in {ref_path}",
+                    f"segment reference {desc!r} ending at {seg_end.ts:.3f} in {path}",
                     seg_end.frame,
                 )
             cv2.waitKey()
@@ -133,12 +133,12 @@ class CLI:
 
     def find_segments(self, path: str) -> t.List[t.Tuple[float, float]]:
         series = find_series(path)
-        markings = self._query_markings(series)
+        references = self._query_segment_references(series)
         cutouts = []
-        for ref_path, desc, mark_start, mark_end in markings:
+        for ref_path, desc, ref_start, ref_end in references:
             structlog.contextvars.bind_contextvars(desc=desc)
 
-            seg_start, seg_end = self._get_segment(ref_path, mark_start, mark_end)
+            seg_start, seg_end = self._get_segment_ref(ref_path, ref_start, ref_end)
 
             start, _ = find_frame(
                 path,

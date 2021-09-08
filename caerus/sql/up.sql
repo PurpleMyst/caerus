@@ -1,19 +1,25 @@
-CREATE TABLE IF NOT EXISTS videos(
+-- Video files that we have, associated to their series
+CREATE TABLE IF NOT EXISTS videos (
     id INTEGER PRIMARY KEY,
     series_id INTEGER NOT NULL,
     path TEXT UNIQUE NOT NULL,
+
     FOREIGN KEY (series_id) REFERENCES series(id) ON UPDATE CASCADE ON DELETE CASCADE
 );
-CREATE TABLE IF NOT EXISTS SERIES(
+
+-- Series, associated to their title
+CREATE TABLE IF NOT EXISTS series (
     id INTEGER PRIMARY KEY,
     title TEXT UNIQUE NOT NULL
 );
-CREATE TABLE IF NOT EXISTS MARKINGS(
+
+-- Segment references, utilized to find fluff in other videos of the same series
+CREATE TABLE IF NOT EXISTS segment_references (
     id INTEGER PRIMARY KEY,
     video_id INTEGER NOT NULL,
     description TEXT UNIQUE,
-    start_timestamp REAL NOT NULL,
-    -- NULL represents "till the end of the video"
-    end_timestamp REAL,
+    start REAL NOT NULL,
+    end REAL, -- NULL represents "till the end of the video"
+
     FOREIGN KEY (video_id) REFERENCES videos(id) ON UPDATE CASCADE ON DELETE CASCADE
 );
