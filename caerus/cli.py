@@ -56,7 +56,7 @@ class CLI:
         )
         self.logger = structlog.get_logger()
 
-    def mark(
+    def add_reference(
         self,
         path: str,
         description: str,
@@ -77,7 +77,7 @@ class CLI:
                 end=end,
             )
 
-    def _query_segment_references(
+    def _query_segment_references_for_series(
         self, series: str
     ) -> t.List[t.Tuple[str, str, float, t.Optional[float]]]:
         return self.db.execute(
@@ -87,6 +87,18 @@ class CLI:
             JOIN videos ON videos.id = video_id
             JOIN series ON series.title = ?""",
             (series,),
+        ).fetchall()
+
+    def _query_segment_references_for_path(
+        self, path: str
+    ) -> t.List[t.Tuple[str, str, float, t.Optional[float]]]:
+        return self.db.execute(
+            """
+            SELECT description, start, end
+            FROM segment_references
+            JOIN videos ON videos.path = path
+            """,
+            (path,),
         ).fetchall()
 
     def _get_segment_ref(
@@ -111,9 +123,12 @@ class CLI:
 
         return (segment_start, segment_end)
 
-    def show_references(self, path: str) -> None:
-        series = find_series(path)
-        references = self._query_segment_references(series)
+    def show_references(self, path: str, all_in_series: bool) -> None:
+        if all_in_series:
+            series = find_series(path)
+            references = self._query_segment_references_for_series(series)
+        else:
+            references = self._query_segment_references_for_path(path)
         for path, desc, start, end in references:
             structlog.contextvars.bind_contextvars(desc=desc)
 
@@ -133,7 +148,7 @@ class CLI:
 
     def find_segments(self, path: str) -> t.List[t.Tuple[float, float]]:
         series = find_series(path)
-        references = self._query_segment_references(series)
+        references = self._query_segment_references_for_series(series)
         cutouts = []
         for ref_path, desc, ref_start, ref_end in references:
             structlog.contextvars.bind_contextvars(desc=desc)
