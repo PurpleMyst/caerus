@@ -49,7 +49,7 @@ class CLI:
             ),
             context_class=dict,
             logger_factory=lambda *_: TqdmWriteLogger(),
-            cache_logger_on_first_use=False,
+            cache_logger_on_first_use=True,
         )
         self.logger = structlog.get_logger().bind()
 
