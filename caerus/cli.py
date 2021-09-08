@@ -83,13 +83,11 @@ class CLI:
             series_id = insert_unique(self.db, "series", title=series)
             video_id = insert_unique(self.db, "videos", path=path, series_id=series_id)
 
-            insert_unique(
-                self.db,
-                "segment_references",
-                description=description,
-                video_id=video_id,
-                start=start,
-                end=end,
+            self.db.execute(
+                "INSERT INTO segment_references(description, video_id, start, end) "
+                "VALUES (?, ?, ?, ?)",
+                (description, video_id, start, end),
+            )
 
     def remove_reference(
         self,
