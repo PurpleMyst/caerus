@@ -69,6 +69,14 @@ def show(ctx: click.Context, path: str, all_in_series: bool) -> None:
     cli.show_references(path, all_in_series)
 
 
+@references.command()
+@click.argument("folder", type=click.Path())
+@click.pass_context
+def analyze(ctx: click.Context, folder: str) -> None:
+    cli: CLI = ctx.obj["cli"]
+    cli.analyze(folder)
+
+
 @cli.group()
 def segments() -> None:
     """Search for and manipulate segments in specific files"""

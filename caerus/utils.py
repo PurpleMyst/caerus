@@ -4,13 +4,44 @@ import subprocess
 import typing as t
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from functools import wraps
+from inspect import getcallargs
 from itertools import repeat
 
 import cv2
 import numpy as np
 import numpy.typing as npt
+import structlog
 
 Frame = npt.NDArray[np.uint8]
+F = t.TypeVar("F", bound=t.Callable[..., t.Any])
+
+
+def format_time(s: float, *, sep: str = ":") -> str:
+    h, m = divmod(s, 60)
+    return f"{h:02.0f}{sep}{m:06.3f}"
+
+
+def log_parameters(*, ignore: t.Sequence[str] = ()) -> t.Callable[[F], F]:
+    def decorator(func: F) -> F:
+        name = func.__name__
+
+        @wraps(func)
+        def inner(*args: t.Any, **kwargs: t.Any) -> t.Any:
+            logger = structlog.get_logger()
+            try:
+                callargs = getcallargs(func, *args, **kwargs)
+            except Exception as error:
+                logger.warning("callargs failed", func=name, error=error)
+            else:
+                for arg in ignore:
+                    del callargs[arg]
+                logger.debug("log_parameters.call", func=name, **callargs)
+            return func(*args, **kwargs)
+
+        return t.cast(F, inner)
+
+    return decorator
 
 
 @contextmanager

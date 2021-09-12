@@ -1,11 +1,17 @@
+import collections
 import logging
+import os
 import sqlite3
 import sys
 import typing as t
+from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from pathlib import Path
+from pprint import pformat
+from uuid import uuid4
 
 import cv2
+import imagehash
 import orjson
 import structlog
 import structlog.contextvars
@@ -16,10 +22,12 @@ from .utils import FFMpeg, find_series, insert_unique
 from .video_ops import (
     FoundFrame,
     find_frame,
+    intervals_from_hashes,
     matches_frame,
     nonblack,
     remove_segments,
     rfind_frame,
+    unique_frames_hash,
     video_length,
 )
 
@@ -97,6 +105,21 @@ class CLI:
             self.db.execute(
                 "DELETE FROM segment_references WHERE description=?", (description,)
             )
+
+    def analyze(self, folder: str) -> None:
+        videos = [str(Path(folder, video)) for video in os.listdir(folder)]
+
+        counter: t.Counter[imagehash.ImageHash] = collections.Counter()
+        with ThreadPoolExecutor() as executor:
+            for hashes in executor.map(unique_frames_hash, videos):
+                counter.update(hashes)
+
+        replicated = {h for h, n in counter.items() if n == len(videos)}
+        v = videos[0]
+        intervals = intervals_from_hashes(replicated, v)
+        tqdm.write(pformat(intervals))
+        for start, end in intervals:
+            self.add_reference(v, str(uuid4()), start, end)
 
     def _query_segment_references_for_series(
         self, series: str
@@ -235,7 +258,7 @@ class CLI:
         return self.db.execute(
             "SELECT start, end"
             " FROM segments"
-            " JOIN videos ON video_id = segments.id AND path = ?",
+            " JOIN videos ON video_id = videos.id AND path = ?",
             (path,),
         ).fetchall()
 

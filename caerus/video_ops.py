@@ -1,17 +1,21 @@
 import typing as t
+from itertools import islice
+from math import ceil
 
 import cv2
+import imagehash
 import numpy as np
 import structlog
 from colorama import Fore, Style
+from PIL import Image
 from tqdm import tqdm
 
-from .utils import FFMpeg, Frame, releasing
+from .utils import FFMpeg, Frame, log_parameters, releasing, format_time
 
 BAR_FORMAT = (
     f"{Style.BRIGHT}{{desc}}{Style.RESET_ALL}: {Fore.GREEN}{{percentage:3.2f}}% "
     f"{Fore.BLUE}{{bar}}"
-    f" {Fore.GREEN}{{n_fmt}}{Style.RESET_ALL}/{{total:.0f}}"
+    f" {Fore.GREEN}{{n_fmt}}{Style.RESET_ALL}/{{total_fmt}}"
     f" [{Fore.GREEN}{{elapsed}} "
     f"{Style.BRIGHT}{Fore.RED}{{rate_fmt}}{Style.RESET_ALL}{{postfix}}]"
 )
@@ -30,9 +34,21 @@ def video_length(path: str) -> float:
 
 
 def nonblack(frame: Frame, *, threshold: int = 32, percentage: float = 0.02) -> bool:
+    """Check if FRAME is nonblack, i.e. not comprised of mostly black pixels.
+
+    A frame is nonblack if PERCENTAGE% pixels' luminance is greater than THRESHOLD."""
     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     nonblacks = np.count_nonzero(frame > threshold) / frame.size
     return nonblacks >= percentage
+
+
+def nonwhite(frame: Frame, *, threshold: int = 223, percentage: float = 0.02) -> bool:
+    """Check if FRAME is nonwhite, i.e. not comprised of mostly white pixels.
+
+    A frame is nonwhite if PERCENTAGE% pixels' luminance is lesser than THRESHOLD."""
+    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    nonwhites = np.count_nonzero(frame < threshold) / frame.size
+    return nonwhites >= percentage
 
 
 def matches_frame(
@@ -46,6 +62,79 @@ def matches_frame(
     return matching / diff.size >= percentage  # type: ignore
 
 
+def frames(cap: cv2.VideoCapture, *, desc: t.Optional[str] = None) -> t.Iterator[Frame]:
+    with tqdm(
+        total=cap.get(cv2.CAP_PROP_FRAME_COUNT) - cap.get(cv2.CAP_PROP_POS_FRAMES),
+        bar_format=BAR_FORMAT,
+        desc=desc,
+    ) as pbar:
+        while True:
+            frame: Frame
+            ok, frame = cap.read()
+            if not ok:
+                break
+            pbar.update(1)
+            yield frame
+
+
+def unique_frames_hash(video: str) -> t.Set[imagehash.ImageHash]:
+    with releasing(cv2.VideoCapture(video)) as cap:
+        return {
+            imagehash.dhash(Image.fromarray(frame)) for frame in frames(cap, desc=video)
+        }
+
+
+def intervals_from_hashes(
+    hashes: t.Set[imagehash.ImageHash], video: str
+) -> t.List[t.Tuple[float, float]]:
+    result = []
+    start = None
+    gap = 0
+    last_good = None
+
+    with releasing(cv2.VideoCapture(video)) as cap:
+        min_gap = cap.get(cv2.CAP_PROP_FPS)
+
+        logger = structlog.get_logger().bind(video=video, min_gap=min_gap)
+        for frame in frames(cap, desc=video):
+            if not (nonblack(frame) and nonwhite(frame)):
+                continue
+
+            h = imagehash.dhash(Image.fromarray(frame))
+            if h in hashes:
+                if gap != 0 and start is not None:
+                    logger.debug("interval.gap_clear", gap=gap)
+                gap = 0
+
+                last_good = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
+                if start is None:
+                    start = last_good
+                    logger.debug(
+                        "interval.start",
+                        start=format_time(start),
+                        start_hash=str(h),
+                    )
+            elif start is not None:
+                gap += 1
+
+                if gap >= min_gap:
+                    assert last_good is not None
+                    logger.info(
+                        "interval.found",
+                        start=format_time(start),
+                        end=format_time(last_good),
+                        end_hash=str(h),
+                    )
+                    result.append((start, last_good))
+                    start = last_good = None
+
+    if start is not None:
+        result.append((start, video_length(video)))
+
+    return result
+
+
+@log_parameters(ignore=("predicate",))
 def find_frame(
     path: str,
     predicate: t.Callable[[Frame], bool],
@@ -71,9 +160,7 @@ def find_frame(
     desc : str
         An optional description for the shown progress bar
     """
-    structlog.get_logger().debug(
-        "find_frame", path=path, offset=offset, h_offset=h_offset
-    )
+    logger = structlog.get_logger()
     if h_offset is not None:
         try:
             return find_frame(
@@ -84,21 +171,18 @@ def find_frame(
 
     with releasing(cv2.VideoCapture(path)) as cap:
         cap.set(cv2.CAP_PROP_POS_MSEC, offset * 1000)
-        pbar = tqdm(
-            total=cap.get(cv2.CAP_PROP_FRAME_COUNT) - cap.get(cv2.CAP_PROP_POS_FRAMES),
-            desc=desc,
-            bar_format=BAR_FORMAT,
-        )
-        while True:
-            pbar.update(1)
-            frame: np.ndarray[t.Any, np.dtype[np.uint8]]
-            ok, frame = cap.read()
-            if not ok:
-                raise LookupError
+        it = frames(cap, desc=desc)
+        if h_offset is not None:
+            end = (h_offset - offset) / cap.get(cv2.CAP_PROP_FPS)
+            logger.debug("find_frame stopping at", end=end)
+            it = islice(it, ceil(end))
+        for frame in it:
             if predicate(frame):
                 return FoundFrame(cap.get(cv2.CAP_PROP_POS_MSEC) / 1000, frame)
+    raise LookupError
 
 
+@log_parameters(ignore=("predicate",))
 def rfind_frame(
     path: str,
     predicate: t.Callable[[Frame], bool],
@@ -106,7 +190,6 @@ def rfind_frame(
     offset: float = 0,
     desc: t.Optional[str] = None,
 ) -> FoundFrame:
-    structlog.get_logger().debug("rfind_frame", path=path, offset=offset)
     with releasing(cv2.VideoCapture(path)) as cap:
         if offset < 0:
             cap.set(cv2.CAP_PROP_POS_AVI_RATIO, 1)
@@ -116,20 +199,22 @@ def rfind_frame(
         pos = cap.get(cv2.CAP_PROP_POS_FRAMES)
         if offset < 0:
             cap.set(cv2.CAP_PROP_POS_FRAMES, pos + offset)
-        pbar = tqdm(total=pos, desc=desc, bar_format=BAR_FORMAT)
-        while True:
-            assert pos >= 0
-            pbar.update(1)
-            frame: Frame
-            ok, frame = cap.read()
-            if not ok:
-                raise LookupError
-            if predicate(frame):
-                return FoundFrame(cap.get(cv2.CAP_PROP_POS_MSEC) / 1000, frame)
-            pos -= 1
-            cap.set(cv2.CAP_PROP_POS_FRAMES, pos)
+        with tqdm(desc=desc, bar_format=BAR_FORMAT, total=pos + 1) as pbar:
+            while True:
+                if pos < 0:
+                    raise LookupError
+                pbar.update(1)
+                frame: Frame
+                ok, frame = cap.read()
+                if not ok:
+                    raise LookupError
+                if predicate(frame):
+                    return FoundFrame(cap.get(cv2.CAP_PROP_POS_MSEC) / 1000, frame)
+                pos -= 1
+                cap.set(cv2.CAP_PROP_POS_FRAMES, pos)
 
 
+@log_parameters()
 def remove_segments(
     path: str,
     output: str,
