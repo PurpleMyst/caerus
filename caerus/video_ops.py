@@ -223,8 +223,9 @@ def remove_segments(
 ) -> None:
     timestamps.sort()
     it = iter(timestamps)
-    first_start, prev_end = next(it)
 
+    # Calculate the space in-between the segments to remove.
+    first_start, prev_end = next(it)
     to_keep: t.List[t.Tuple[float, float]] = []
     if first_start != 0:
         to_keep.append((0, first_start))
@@ -234,19 +235,20 @@ def remove_segments(
                 to_keep.append((prev_end, start))
             prev_end = end
 
+    # If the last segment doesn't end with the video, make sure to keep everything after
+    # the end of the last segment.
     end = video_length(path)
     if prev_end != end:
         to_keep.append((prev_end, end))
 
+    # Calculate the ffmpeg concat filter to apply
     filters = []
     concat = []
-
     for i, (start, end) in enumerate(to_keep):
         # XXX is format=yuv420p needed/useful?
         filters.append(f"[0:v]trim=start={start}:end={end},setpts=PTS-STARTPTS[{i}v]")
         filters.append(f"[0:a]atrim=start={start}:end={end},asetpts=PTS-STARTPTS[{i}a]")
         concat.append(f"[{i}v][{i}a]")
-
     concat.append(f"concat=n={len(to_keep)}:v=1:a=1[outv][outa]")
     filters.append("".join(concat))
 
