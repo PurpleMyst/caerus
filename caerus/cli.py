@@ -84,7 +84,7 @@ class CLI:
         path: str,
         description: str,
         start: float,
-        end: t.Optional[float],
+        end: float | None,
     ) -> None:
         series = find_series(path)
         with self.db:
@@ -123,7 +123,7 @@ class CLI:
 
     def _query_segment_references_for_series(
         self, series: str
-    ) -> t.List[t.Tuple[int, str, str, float, t.Optional[float]]]:
+    ) -> list[tuple[int, str, str, float, float | None]]:
         return self.db.execute(
             "SELECT segment_references.id, path, description, start, end"
             " FROM segment_references"
@@ -134,7 +134,7 @@ class CLI:
 
     def _query_unfound_segment_references(
         self, video_id: int, series_id: int
-    ) -> t.List[t.Tuple[int, str, str, float, t.Optional[float]]]:
+    ) -> list[tuple[int, str, str, float, float | None]]:
         return self.db.execute(
             "SELECT segment_references.id, path, description, start, end"
             " FROM segment_references"
@@ -150,7 +150,7 @@ class CLI:
 
     def _query_segment_references_for_path(
         self, path: str
-    ) -> t.List[t.Tuple[int, str, str, float, t.Optional[float]]]:
+    ) -> list[tuple[int, str, str, float, float | None]]:
         return self.db.execute(
             "SELECT segment_references.id, description, start, end"
             " FROM segment_references"
@@ -159,8 +159,8 @@ class CLI:
         ).fetchall()
 
     def _get_segment_ref(
-        self, path: str, start: float, end: t.Optional[float]
-    ) -> t.Tuple[FoundFrame, t.Optional[FoundFrame]]:
+        self, path: str, start: float, end: float | None
+    ) -> tuple[FoundFrame, FoundFrame | None]:
         logger = self.logger.bind(path=path)
         logger.debug("_get_segment_ref", start=start, end=end)
 
@@ -254,7 +254,7 @@ class CLI:
                     (video_id, reference_id, start, end),
                 )
 
-    def found_segments(self, path: str) -> t.List[t.Tuple[float, float]]:
+    def found_segments(self, path: str) -> list[tuple[float, float]]:
         return self.db.execute(
             "SELECT start, end"
             " FROM segments"

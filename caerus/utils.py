@@ -74,7 +74,7 @@ def insert_unique(db: sqlite3.Connection, table: str, **values: t.Any) -> int:
 
 @dataclass
 class FFMpeg:
-    options: t.Dict[str, t.Any] = field(default_factory=dict)
+    options: dict[str, t.Any] = field(default_factory=dict)
 
     def __call__(
         self, *args: t.Any, **kwargs: t.Any

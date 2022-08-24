@@ -33,7 +33,7 @@ def add(
     ctx: click.Context,
     path: str,
     start: float,
-    end: t.Optional[float],
+    end: float | None,
     description: str,
 ) -> None:
     """Define a new segment reference in PATH."""
@@ -107,7 +107,7 @@ def query(ctx: click.Context, path: str) -> None:
 @click.option("-f", "--ffmpeg-arg", type=str, nargs=2, multiple=True)
 @click.pass_context
 def shave(
-    ctx: click.Context, path: str, output: str, ffmpeg_arg: t.List[t.Tuple[str, str]]
+    ctx: click.Context, path: str, output: str, ffmpeg_arg: list[tuple[str, str]]
 ) -> None:
     """Remove segments found in PATH, saving the "shaved" version to OUTPUT.
 
